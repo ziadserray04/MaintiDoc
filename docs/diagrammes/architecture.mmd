@@ -1,0 +1,12 @@
+flowchart LR
+  U["Technicien / Responsable<br/>(texte + photo)"] --> UI["1. Interface<br/>Streamlit"]
+  UI --> API["2. API FastAPI<br/>authentification, groupes"]
+  API --> ORCH["3. Orchestration<br/>LangGraph + checkpoints"]
+  ORCH --> RET["4. Recherche documentaire<br/>BGE-M3 + Qdrant + filtre"]
+  ORCH --> VLM["5. VLM<br/>Qwen2.5-VL (Colab GPU)"]
+  ORCH --> MCP["6. Outil MCP<br/>historique, tickets"]
+  RET --> STO[("7. Stockage<br/>MinIO + PostgreSQL + Qdrant")]
+  MCP --> STO
+  API -. "CP1 droits par groupe" .-> RET
+  ORCH -. "CP2 validation humaine<br/>avant create_ticket" .-> MCP
+  ORCH -. "CP3 citations vérifiées<br/>sinon abstention" .-> API

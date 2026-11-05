@@ -1,0 +1,15 @@
+flowchart TD
+  Q[Question + photo optionnelle] --> AC[Contrôle d'accès : groupes de l'utilisateur]
+  AC --> AN[Analyse : modèle, code, intention]
+  AN --> PH{Photo ?}
+  PH -- oui --> V[VLM : modèle, voyants, code affiché]
+  PH -- non --> R
+  V --> R[Recherche filtrée par groupes + validité]
+  R --> H{Besoin d'historique ?}
+  H -- oui --> M[Outil MCP lecture seule]
+  H -- non --> VER
+  M --> VER[Vérification : citation soutient l'affirmation ?]
+  VER -- non --> AB[Abstention]
+  VER -- ambigu --> CL[Question de clarification]
+  VER -- sources en conflit --> CF[Signalement du conflit]
+  VER -- oui --> RP[Réponse + citations]

@@ -1,0 +1,15 @@
+flowchart TD
+  A[Document PDF/image] --> B{Hash sha256<br/>déjà connu ?}
+  B -- oui --> Z[Ignoré : doublon]
+  B -- non --> C[Extraction PyMuPDF]
+  C --> D{Page sans texte ?}
+  D -- scannée --> E[OCR Tesseract fra]
+  D -- vide --> F[Page ignorée, tracée]
+  D -- texte --> G[Nettoyage en-têtes/pieds]
+  E --> G
+  G --> H[Découpage : paragraphes, lignes de tableau, légendes de figures]
+  H --> I[Métadonnées : modèle, version, validité, groupes]
+  I --> J[Embeddings BGE-M3]
+  J --> K[(Qdrant : vecteurs + payload)]
+  A --> L[(MinIO : fichier source)]
+  I --> M[(PostgreSQL : métadonnées)]

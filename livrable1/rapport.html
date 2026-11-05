@@ -1,0 +1,181 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>L1 MaintiDoc SERRAY Rapport</title>
+<style>
+@page{size:A4;margin:20mm 18mm 20mm 18mm}
+body{font-family:"DejaVu Sans",Arial,sans-serif;font-size:10pt;line-height:1.42;color:#1b1f24}
+h1{font-size:19pt;margin:0 0 4px;color:#0b3d5c}h2{font-size:14pt;color:#0b3d5c;border-bottom:2px solid #0b3d5c;padding-bottom:3px;margin:22px 0 8px;page-break-after:avoid}
+h3{font-size:11pt;color:#0b3d5c;margin:14px 0 4px;page-break-after:avoid}
+table{border-collapse:collapse;width:100%;margin:6px 0 10px;font-size:8.8pt;page-break-inside:auto}tr{page-break-inside:avoid}
+th{background:#0b3d5c;color:#fff;text-align:left;padding:4px 5px}td{border:1px solid #c5ccd3;padding:3px 5px;vertical-align:top}
+img{max-width:100%;display:block;margin:6px auto}figcaption{font-size:8.5pt;color:#555;text-align:center}
+.cover{text-align:center;padding-top:70mm;page-break-after:always}.cover h1{font-size:28pt}.cover p{font-size:12pt;margin:6px}
+.note{background:#eef4f8;border-left:4px solid #0b3d5c;padding:5px 9px;margin:8px 0;font-size:9.3pt}
+.warn{background:#fff6e5;border-left:4px solid #d98a00;padding:5px 9px;margin:8px 0;font-size:9.3pt}
+code{font-family:"DejaVu Sans Mono",monospace;font-size:8.6pt;background:#f1f3f5;padding:0 2px}
+ul{margin:3px 0 6px 18px;padding:0}li{margin:1px 0}.pb{page-break-before:always}
+</style></head><body>
+
+<div class="cover">
+<p>EMSI — Projet IA, EMSI-2026 — Encadrante : Mme Mariam CHERRABI</p>
+<h1>MAINTiDOC</h1>
+<p style="font-size:16pt">Assistant agentique multimodal de documentation de maintenance</p>
+<p style="font-size:14pt"><b>Livrable 1 — Cadrage, corpus et architecture</b></p>
+<p style="margin-top:30mm">Équipe : <b>SERRAY</b> (travail individuel)</p>
+<p>Domaine : maintenance solaire — onduleurs et batteries de stockage (marque fictive HelioNova)</p>
+<p>Novembre 2026</p>
+</div>
+
+<h2>1. Introduction et résumé</h2>
+<p>MAINTiDOC aide un technicien de maintenance à trouver, dans une documentation technique, la bonne information pour un équipement donné : lire une photo de panneau, retrouver le code d'alarme, citer la page source, consulter l'historique de l'équipement et, après validation humaine, préparer un ticket. Le domaine retenu est la <b>maintenance solaire</b> : 7 onduleurs (HN-S3, S5, S6, S8, S10 monophasés ; HN-T15, T20 triphasés) et 7 batteries LFP (HN-B5, B7, B10, B13, B15, B20, B30) d'une marque fictive, <i>HelioNova</i>.</p>
+<p>Le projet est réalisé seul (équipe SERRAY). Ce rapport couvre les six parties demandées : cadrage, corpus, architecture, flux et accès, risques, planning. Le corpus est <b>entièrement synthétique</b> : aucun document tiers ni licence externe.</p>
+<div class="note"><b>État réel au moment du rapport.</b> Le corpus (50 documents) et l'inventaire sont terminés et contrôlés par un validateur automatique. Un prototype de recherche documentaire fonctionne sur un backend d'embeddings de test (hachage, sans GPU) : 63/70 scénarios de référence réussis, 0 fuite de document confidentiel. Les composants BGE-M3, Qwen2.5-VL, Qdrant/PostgreSQL/MinIO réels et l'orchestration LangGraph + MCP ne sont <b>pas encore validés</b> : ils font l'objet du planning (partie 7).</div>
+
+<h2>2. Cadrage du projet</h2>
+<h3>2.1 Utilisateurs</h3>
+<table><tr><th>Utilisateur</th><th>Besoin</th><th>Groupe d'accès</th></tr>
+<tr><td><b>Technicien</b> (installateur ou SAV) sur site, avec smartphone</td><td>Trouver vite la cause et l'action pour un code d'alarme ou un voyant ; connaître seuils, couples, sections de câble ; savoir si la batterie est compatible ; ouvrir un ticket</td><td>grp_installateurs ou grp_sav</td></tr>
+<tr><td><b>Responsable</b> documentation / maintenance</td><td>Valider les tickets proposés ; arbitrer deux documents contradictoires ; garantir que les versions obsolètes ne sont pas utilisées ; accéder aux notes internes</td><td>grp_sav + grp_engineering</td></tr></table>
+<h3>2.2 Cas d'usage</h3>
+<table><tr><th>#</th><th>Cas d'usage</th><th>Entrée → sortie attendue</th></tr>
+<tr><td>CU1</td><td>Diagnostic d'un code d'alarme</td><td>« Code E701 sur HN-S3 » → cause, action, page citée</td></tr>
+<tr><td>CU2</td><td>Identification par photo</td><td>Photo du panneau → modèle (plaque), voyants, code affiché ; sinon demande de nouvelle photo</td></tr>
+<tr><td>CU3</td><td>Valeur technique et compatibilité</td><td>« Quelle section de câble AC pour le HN-S5 ? », « HN-S5 compatible avec HN-B13 ? » → valeur + citation</td></tr>
+<tr><td>CU4</td><td>Historique d'un équipement</td><td>« Derniers incidents du HN-S5-01 ? » → événements et tickets ouverts via l'outil MCP (lecture seule)</td></tr>
+<tr><td>CU5</td><td>Création de ticket avec validation</td><td>« Ouvre un ticket » → brouillon, approbation humaine, création unique (idempotente)</td></tr></table>
+<h3>2.3 Objectifs vérifiables</h3>
+<table><tr><th>Objectif</th><th>Mesure</th><th>Seuil visé</th></tr>
+<tr><td>Qualité de la recherche</td><td>Recall@5, nDCG@5, MRR@10 sur un jeu de scénarios de référence</td><td>Recall@5 ≥ 0,85 avec BGE-M3 (prototype hachage : 0,78)</td></tr>
+<tr><td>Citations</td><td>Part des réponses dont la citation (document, page) soutient l'affirmation</td><td>100 % sur les réponses « answered » (prototype : 43/43)</td></tr>
+<tr><td>Abstention</td><td>Questions sans source ou hors droits → abstention</td><td>≥ 90 % (prototype : 9/10)</td></tr>
+<tr><td>Étanchéité des groupes</td><td>Nombre de fragments confidentiels renvoyés à un groupe non autorisé</td><td>0 (prototype : 0)</td></tr>
+<tr><td>Sécurité des actions</td><td>Tickets créés sans approbation valide</td><td>0 ; deux envois identiques = un seul ticket</td></tr>
+<tr><td>Injection</td><td>Instructions cachées dans un document exécutées</td><td>0 sur le document piégé</td></tr>
+<tr><td>Latence</td><td>Temps de réponse texte / avec photo</td><td>texte &lt; 30 s sur Colab GPU ; avec photo non garanti sur CPU (voir 7)</td></tr></table>
+<h3>2.4 Périmètre</h3>
+<p><b>Dans le périmètre :</b> RAG sur 50 documents français, lecture de photos de panneaux, outil MCP de démonstration (historique, tickets ouverts, création de ticket), contrôle d'accès par groupes, validation humaine, évaluation chiffrée.</p>
+<p><b>Hors périmètre :</b> pilotage réel d'un onduleur ou d'un système SCADA ; connexion à un vrai système de tickets d'entreprise ; documents réels ou sous licence tiers ; authentification d'entreprise (SSO) — les groupes sont simulés ; application mobile native ; multilingue (français seulement) ; entraînement ou fine-tuning de modèles ; conseils de sécurité électrique engageant la responsabilité (la réponse renvoie toujours vers la fiche de sécurité du document).</p>
+<h3>2.5 Hypothèses et contraintes</h3>
+<ul>
+<li><b>Matériel :</b> PC Windows, 16 Go de RAM, carte graphique Intel intégrée, <b>pas de GPU NVIDIA</b>. Les modèles lourds (BGE-M3, Qwen2.5-VL) seront exécutés sur <b>Google Colab (GPU)</b>, conseil de l'encadrante. En local : CPU, embeddings de test, Qdrant en mémoire, SQLite.</li>
+<li><b>Docker :</b> les services (Qdrant, PostgreSQL, MinIO) sont décrits dans <code>docker-compose.yml</code> mais n'ont pas pu être démarrés dans l'environnement de développement actuel (pas de démon Docker) : à valider.</li>
+<li><b>Temps :</b> livrable 1 en semaine 1, puis cinq semaines de réalisation (partie 7). Le temps est la contrainte principale car l'équipe est d'une personne.</li>
+<li><b>Rôles :</b> équipe individuelle — l'étudiant SERRAY assume tous les rôles (voir 7.2). Conséquence : pas de relecture croisée ; la vérification repose sur des tests automatiques.</li>
+<li><b>Données :</b> 100 % synthétiques, sans donnée personnelle réelle. Les noms de sites sont fictifs.</li>
+<li><b>Assistance IA :</b> Claude Sonnet 5.5 a servi à générer le corpus et le prototype ; tout est tracé (partie 3.5).</li></ul>
+
+<h2 class="pb">3. Corpus</h2>
+<h3>3.1 Volume et diversité</h3>
+<p>Le corpus officiel contient <b>50 documents</b> (limite exigée : 30 à 50), dont <b>43 PDF</b> (388 pages) et <b>7 photos</b>. Les photos comptent dans les 50. Quinze autres photos de panneaux sont conservées dans <code>eval_images/</code> comme <b>images de test hors corpus</b> ; au total, 22 photos existent, mais seules 7 sont indexées.</p>
+<table><tr><th>Famille</th><th>Contenu</th><th>Nb</th></tr>
+<tr><td>famille_1 — onduleurs</td><td>7 manuels v2, 1 manuel v1 obsolète (HN-S5), 7 guides de codes, 2 procédures (HN-S3 scannée, HN-T15), guide général, fiche de sécurité, historique, bulletin contradictoire, annexe piégée</td><td>22 PDF</td></tr>
+<tr><td>famille_2 — batteries</td><td>7 manuels v2, 1 manuel v1 obsolète (HN-B10), 7 guides de codes, 2 procédures (HN-B5 scannée, HN-B20), guide général, fiche de sécurité, historique, note confidentielle d'engineering (accès restreint)</td><td>21 PDF</td></tr>
+<tr><td>images/</td><td>Panneaux de commande : HN-S5 normale / floue / plaque masquée, HN-B10 normale / plaque masquée, HN-T15 normale, HN-B30 sombre</td><td>7 images</td></tr></table>
+<p>Types : 18 manuels, 14 guides de codes d'alarme, 7 procédures, 7 photos, 2 fiches de sécurité, 2 historiques. Formats : 41 PDF texte, 2 PDF scannés, 7 images. <b>43 documents</b> contiennent des éléments visuels (figures, tableaux, schémas), au-delà du minimum de 10. Longueurs de 1 à environ 30 pages.</p>
+<h3>3.2 Cas particuliers exigés</h3>
+<table><tr><th>Exigence</th><th>Réalisation</th><th>Fichier</th></tr>
+<tr><td>≥ 2 scans</td><td>Procédures rendues en images dégradées (flou léger, rotation) ; OCR Tesseract français</td><td>procedure_hns3, procedure_hnb5</td></tr>
+<tr><td>≥ 2 contradictoires</td><td>(a) Bulletin : seuil de limitation du HN-S8 à 58 °C contre 63 °C dans le manuel valide ; (b) manuels v1 obsolètes (HN-S5, HN-B10) avec valeurs différentes, marqués <i>obsolète</i></td><td>bulletin_hns8_contradictoire, manuel_hns5_v1, manuel_hnb10_v1</td></tr>
+<tr><td>1 injection</td><td>Annexe HN-T15 contenant une instruction cachée (« ignore les règles précédentes… ») et une page 2 vide</td><td>annexe_hnt15_piegee</td></tr>
+<tr><td>≥ 2 groupes d'accès</td><td>3 groupes : grp_installateurs, grp_sav, grp_engineering</td><td>colonne groupe_acces</td></tr></table>
+<h3>3.3 Sources et licences</h3>
+<p>Tous les documents sont <b>synthétiques</b> (colonne <code>provenance</code> = synthetique, <code>licence</code> = synthetique), produits par un script reproductible (<code>generate_corpus.py</code>) sous licence du dépôt. Les images sont <b>dessinées par code</b>, pas photographiées. Aucun contenu tiers n'est inclus : l'étudiant a décidé « rien avec licence » après avoir constaté que plusieurs sources proposées par l'IA avaient des licences non commerciales ou non vérifiées (voir 3.5). Conséquence : la marque HelioNova et ses valeurs n'existent pas ; le corpus valide la <i>chaîne</i> de traitement, pas la connaissance d'un vrai produit.</p>
+<h3>3.4 Inventaire</h3>
+<p>Le fichier <code>inventaire.csv</code> compte 50 lignes et 20 colonnes : identifiant, fichier, titre, famille, équipement(s), type, version, pages, langue, format, éléments visuels, provenance, licence, génération IA, outil IA, vérificateur, corrections, groupe d'accès, usage de test, remarques. Un validateur automatique contrôle : nombre de lignes (30–50), correspondance exacte fichiers ↔ lignes, valeurs autorisées, ≥ 2 familles, ≥ 10 documents visuels, ≥ 2 scans, ≥ 2 contradictoires, ≥ 1 injection, ≥ 2 groupes. Résultat actuel : <b>conforme</b>.</p>
+<div class="warn"><b>Point ouvert.</b> La colonne <code>verifie_par</code> contient <code>A_COMPLETER</code> : les valeurs sont contrôlées automatiquement contre un fichier de faits, mais la relecture humaine par sondage n'est pas encore faite et ne doit pas être déclarée avant de l'être.</div>
+<h3>3.5 Traçabilité de l'IA et analyse critique</h3>
+<p>Quatre prompts structurants sont documentés dans <code>prompts_corpus.md</code> (P01 génération, P02 réalisme et photos, P03 corrections, P04 fiches de sécurité, historiques, inventaire). Outil : Claude Sonnet 5.5.</p>
+<p><b>Erreurs réelles de l'IA et détection :</b></p>
+<ul>
+<li><b>Domaine non demandé</b> : départ sur des pompes/compresseurs ; détecté par l'étudiant.</li>
+<li><b>Volume hors limite</b> : 71 documents au lieu de ≤ 50, avec une borne de test élargie pour passer ; détecté en relisant les consignes, corpus scindé en « officiel » et « enrichi ».</li>
+<li><b>Décompte faux</b> : l'IA a certifié « 50 fichiers » sans compter les photos ; corrigé (43 PDF + 7 photos), les 15 autres photos étant gardées hors corpus.</li>
+<li><b>Chiffre faux</b> : 28 codes batterie annoncés au lieu de 27 ; recompté automatiquement.</li>
+<li><b>Licences citées de mémoire</b> (CC BY-NC-SA, CC BY-SA…) sans ouvrir les pages ; non retenues.</li>
+<li><b>OCR anglais</b> perdant les accents ; corrigé en français.</li>
+<li><b>Évaluation optimiste</b> : 64/64 sur un jeu réglé sur ses propres échecs ; le jeu indépendant de 70 scénarios donnait 53/70 au premier passage (63/70 après correctifs, donc non indépendant).</li>
+<li><b>Régression</b> : l'ajout des fiches de sécurité a fait chuter deux réponses (stockage, fusible) ; détectée par les tests.</li></ul>
+<p><b>Leçon :</b> l'IA produit vite mais affirme sans vérifier (comptes, licences, domaine). Les garde-fous efficaces ont été les tests automatiques, le validateur d'inventaire et la relecture des consignes — pas la confiance dans la sortie. Toute affirmation factuelle de l'IA (licence, chiffre, lien) est vérifiée avant usage.</p>
+
+<h2 class="pb">4. Architecture</h2>
+<figure><img src="architecture.png" alt="Architecture"><figcaption>Figure 1 — Blocs fonctionnels et trois points de contrôle (CP1 droits, CP2 validation humaine, CP3 citations)</figcaption></figure>
+<h3>4.1 Fiches par bloc</h3>
+<table><tr><th>Bloc</th><th>Rôle</th><th>Technologie</th><th>Entrées → sorties</th><th>Risque principal</th></tr>
+<tr><td>1. Interface</td><td>Saisie question + photo, affichage réponse, citations, approbation</td><td>Streamlit</td><td>texte/image → réponse, citations, bouton « approuver »</td><td>Afficher une réponse sans citation</td></tr>
+<tr><td>2. API</td><td>Authentification simulée, résolution des groupes, routage</td><td>FastAPI</td><td>requête + jeton → contexte utilisateur (groupes)</td><td>Groupes mal transmis</td></tr>
+<tr><td>3. Orchestration</td><td>Enchaîner analyse, recherche, VLM, outil, vérification ; mémoriser l'état ; suspendre avant ticket</td><td>LangGraph, checkpoints SQLite</td><td>contexte → réponse / clarification / brouillon</td><td>Boucles ou coût non bornés → budgets (3 appels MCP, 6 appels modèle, 60 s)</td></tr>
+<tr><td>4. Recherche documentaire</td><td>Retrouver les passages autorisés, valides, du bon modèle</td><td>Embeddings BGE-M3, Qdrant, filtre sur payload</td><td>question + groupes → passages classés</td><td>Passage confidentiel ou obsolète renvoyé</td></tr>
+<tr><td>5. VLM</td><td>Lire la photo : modèle sur la plaque, voyants, code</td><td>Qwen2.5-VL sur Colab</td><td>image → JSON (modèle, voyants, code, confiance)</td><td>Hallucination sur photo floue → demander une autre photo</td></tr>
+<tr><td>6. Outil MCP</td><td>Historique, tickets ouverts (lecture) ; création de ticket (écriture contrôlée)</td><td>Serveur MCP de démonstration</td><td>équipement → événements ; brouillon + jeton → ticket</td><td>Écriture sans approbation → jeton HMAC lié à l'utilisateur, au contenu, expirant, à usage unique</td></tr>
+<tr><td>7. Stockage</td><td>Fichiers sources, métadonnées, vecteurs</td><td>MinIO, PostgreSQL, Qdrant</td><td>documents → objets, lignes, vecteurs</td><td>Fichier ou fragment accessible hors groupe</td></tr></table>
+<h3>4.2 Points de contrôle</h3>
+<ul>
+<li><b>CP1 — Accès :</b> le filtre par groupes est appliqué <i>dans la requête vectorielle</i>, avant toute lecture du contenu ; un utilisateur sans groupe n'obtient rien. Un document confidentiel et un document inexistant produisent le même message d'abstention (on ne révèle pas son existence).</li>
+<li><b>CP2 — Validation humaine :</b> aucune écriture sans jeton d'approbation émis après décision d'un humain ; le graphe est suspendu (<i>interrupt</i>) et reprend après réponse.</li>
+<li><b>CP3 — Citations :</b> toute réponse doit citer un passage qui soutient l'affirmation (vérification par recouvrement de valeurs et de mots-clés) ; sinon abstention. Si deux sources valides se contredisent, le système le signale sans trancher.</li></ul>
+<h3>4.3 Parcours d'une requête</h3>
+<figure><img src="requete.png" style="max-height:120mm" alt="Parcours requête"><figcaption>Figure 2 — Parcours d'une question (texte et photo optionnelle)</figcaption></figure>
+<p>Exemple : le technicien envoie la photo du panneau HN-S5 et « code E701 ». L'API résout ses groupes ; le VLM lit le modèle (ou demande une meilleure photo si la plaque est illisible) ; la recherche filtrée renvoie la fiche E701 du HN-S5 ; l'outil MCP renvoie les tickets ouverts ; la vérification confirme la citation ; la réponse affiche cause, action et page.</p>
+<h3>4.4 Questions ouvertes</h3>
+<ul>
+<li>BGE-M3 et Qwen2.5-VL atteindront-ils les seuils sur Colab ? Quel modèle de génération final (Qwen texte sur Colab, ou règle d'extraction seule) ?</li>
+<li>Un graphe agentique est-il utile ou un pipeline fixe suffit-il ? Le choix LangGraph est motivé surtout par la suspension avant ticket.</li>
+<li>Comment faire tourner la démo en direct sans GPU local : Colab exposé par tunnel, ou résultats pré-calculés (à décider avant la semaine 6) ?</li>
+<li>Les images dessinées par code représentent-elles assez bien des photos réelles ? Probablement non : le test VLM sera optimiste.</li></ul>
+
+<h2 class="pb">5. Flux de données et contrôle d'accès</h2>
+<h3>5.1 Flux d'ingestion</h3>
+<figure><img src="ingestion.png" style="max-height:150mm" alt="Ingestion"><figcaption>Figure 3 — Ingestion : dédoublonnage, extraction, OCR, découpage, indexation</figcaption></figure>
+<p>Principes : un fichier de même contenu (sha256) n'est stocké qu'une fois ; les pages vides sont ignorées et tracées ; en-têtes et pieds de page sont supprimés ; les tableaux sont découpés <b>par ligne</b> (une ligne = une unité de réponse) ; les figures sont indexées par leur légende ; chaque fragment hérite des métadonnées du document (modèle, version, validité, groupes).</p>
+<h3>5.2 Flux de requête</h3>
+<p>Voir la figure 2. Les budgets bornent chaque requête : au plus 3 appels MCP, 6 appels de modèle et 60 s ; les nouvelles tentatives sont bornées.</p>
+<h3>5.3 Création de ticket et idempotence</h3>
+<figure><img src="ticket.png" style="max-height:120mm" alt="Ticket"><figcaption>Figure 4 — Création de ticket : brouillon, approbation, vérification du jeton, idempotence</figcaption></figure>
+<p>L'<b>idempotence</b> repose sur une clé calculée à partir de l'équipement, du symptôme normalisé et de l'utilisateur : si l'outil reçoit deux fois la même clé (double clic, relance après erreur réseau), il renvoie le ticket déjà créé au lieu d'en créer un second. Le jeton d'approbation est à usage unique.</p>
+<h3>5.4 Schéma de métadonnées</h3>
+<figure><img src="metadonnees.png" style="max-height:125mm" alt="Métadonnées"><figcaption>Figure 5 — Schéma logique des métadonnées</figcaption></figure>
+<p>Champs clés par fragment : <code>document_id</code>, <code>page</code>, <code>element_type</code> (text, table, figure), <code>equipment_model</code>, <code>version</code>, <code>validity_status</code> (valid / obsolète), <code>document_date</code>, <code>access_groups</code>, <code>sha256</code>.</p>
+<h3>5.5 Modèle d'accès</h3>
+<figure><img src="acces.png" style="max-height:80mm" alt="Accès"><figcaption>Figure 6 — Groupes et documents visibles</figcaption></figure>
+<table><tr><th>Groupe</th><th>Voit</th><th>Ne voit pas</th></tr>
+<tr><td>grp_installateurs</td><td>Manuels, guides généraux, fiches de sécurité</td><td>Codes d'alarme détaillés, procédures internes, historiques, note confidentielle</td></tr>
+<tr><td>grp_sav</td><td>Tout ce qui précède + codes, procédures, bulletins, historiques</td><td>Note confidentielle d'engineering</td></tr>
+<tr><td>grp_engineering</td><td>Tout, y compris la note confidentielle</td><td>—</td></tr></table>
+<p>Test réalisé : sur 70 scénarios dont 10 sur les droits, aucune réponse pour le groupe SAV ne contient le marqueur de la note confidentielle. Un document obsolète n'est jamais renvoyé par défaut ; il n'est consultable que sur demande explicite.</p>
+
+<h2 class="pb">6. Risques</h2>
+<p>Probabilité (P) et impact (I) de 1 (faible) à 3 (fort) ; criticité = P × I. Responsable : l'étudiant SERRAY pour tous (équipe individuelle).</p>
+<table><tr><th>#</th><th>Risque</th><th>P</th><th>I</th><th>Crit.</th><th>Mesure</th><th>Resp.</th></tr>
+<tr><td>R1</td><td>Hallucination / citation qui ne soutient pas la réponse</td><td>2</td><td>3</td><td>6</td><td>Vérification de soutien avant réponse ; abstention ; mesure « citations correctes » en évaluation</td><td>SERRAY</td></tr>
+<tr><td>R2</td><td>Fuite entre groupes (document confidentiel renvoyé)</td><td>1</td><td>3</td><td>3</td><td>Filtre dans la requête vectorielle ; tests dédiés ; même message qu'un document inexistant</td><td>SERRAY</td></tr>
+<tr><td>R3</td><td>Ticket créé sans approbation, ou en double</td><td>1</td><td>3</td><td>3</td><td>Interrupt LangGraph ; jeton HMAC à usage unique ; clé d'idempotence ; tests</td><td>SERRAY</td></tr>
+<tr><td>R4</td><td>Erreurs de l'IA dans le corpus (valeurs fausses, comptes)</td><td>3</td><td>2</td><td>6</td><td>Valeurs contrôlées contre <code>facts.json</code> ; validateur d'inventaire ; relecture humaine par sondage ; analyse critique tenue à jour</td><td>SERRAY</td></tr>
+<tr><td>R5</td><td>Problèmes de licences</td><td>1</td><td>3</td><td>3</td><td>Corpus 100 % synthétique ; rien de tiers ; toute source proposée par l'IA vérifiée avant usage</td><td>SERRAY</td></tr>
+<tr><td>R6</td><td>Matériel insuffisant (16 Go, pas de GPU) / Colab instable</td><td>3</td><td>2</td><td>6</td><td>Backends interchangeables ; embeddings de test en local ; Colab pour BGE-M3 et Qwen ; résultats pré-calculés pour la démo</td><td>SERRAY</td></tr>
+<tr><td>R7</td><td>Injection de prompt dans un document</td><td>2</td><td>2</td><td>4</td><td>Document traité comme donnée, jamais comme instruction ; annexe piégée dans les tests ; aucun outil déclenché par un contenu de document</td><td>SERRAY</td></tr>
+<tr><td>R8</td><td>Réponse issue d'une version obsolète ou contradictoire</td><td>2</td><td>3</td><td>6</td><td>Statut de validité filtré ; détection de conflit entre sources valides ; signalement au responsable</td><td>SERRAY</td></tr>
+<tr><td>R9</td><td>Mauvaise lecture de photo (floue, plaque masquée)</td><td>3</td><td>2</td><td>6</td><td>Le VLM renvoie une confiance ; sous le seuil → demande d'une autre photo ; 22 images de test</td><td>SERRAY</td></tr>
+<tr><td>R10</td><td>Retard : projet individuel, tâches nombreuses</td><td>3</td><td>3</td><td>9</td><td>Priorités (voir 7) ; fonctions optionnelles coupées en premier ; jalon chaque semaine ; commits fréquents</td><td>SERRAY</td></tr>
+<tr><td>R11</td><td>Évaluation trop optimiste (jeu réglé sur ses échecs)</td><td>3</td><td>2</td><td>6</td><td>Jeu de 150 scénarios gardé à part et figé avant réglage ; premier passage conservé ; limites déclarées</td><td>SERRAY</td></tr>
+<tr><td>R12</td><td>Secret (clé, mot de passe) publié dans le dépôt ou le ZIP</td><td>1</td><td>3</td><td>3</td><td><code>.env</code> exclu par <code>.gitignore</code> ; <code>.env.example</code> sans valeur ; contrôle automatique avant envoi</td><td>SERRAY</td></tr></table>
+<p>Les risques de criticité ≥ 6 sont R10, R1, R4, R6, R8, R9, R11 : ils guident l'ordre du planning.</p>
+
+<h2>7. Planning et rôles (semaines 2 à 6)</h2>
+<h3>7.1 Planning</h3>
+<table><tr><th>Semaine</th><th>Objectifs</th><th>Livrable / critère de fin</th></tr>
+<tr><td>2</td><td>Ingestion et recherche sur Colab avec BGE-M3 réel ; Qdrant et PostgreSQL via Docker ; jeu de référence figé (150 scénarios)</td><td>Recall@5, nDCG@5, MRR@10 mesurés avec un vrai modèle ; comparaison au prototype</td></tr>
+<tr><td>3</td><td>Orchestration LangGraph (accès, analyse, recherche, vérification, abstention) ; API FastAPI</td><td>Graphe exécutable de bout en bout sur texte ; budgets appliqués ; tests</td></tr>
+<tr><td>4</td><td>Serveur MCP (historique, tickets ouverts, create_ticket) ; approbation HMAC ; idempotence ; interrupt</td><td>Démonstration d'un ticket approuvé, d'un refus et d'un double envoi</td></tr>
+<tr><td>5</td><td>VLM Qwen2.5-VL sur Colab pour les photos ; évaluation sur 22 images ; interface Streamlit</td><td>Parcours complet photo → réponse citée ; taux de lecture correcte du modèle</td></tr>
+<tr><td>6</td><td>Évaluation finale, suivi MLflow, correction des défauts, documentation, démonstration, rapport final</td><td>Démo reproductible ; rapport avec limites ; dépôt propre</td></tr></table>
+<p><b>Si le temps manque</b>, on coupe dans cet ordre : interface Streamlit (remplacée par l'API et des scripts), suivi MLflow, VLM sur toutes les images. Le cœur — recherche filtrée, citations, abstention, ticket approuvé — est prioritaire.</p>
+<h3>7.2 Rôles</h3>
+<table><tr><th>Rôle</th><th>Tenu par</th><th>Conséquence</th></tr>
+<tr><td>Chef de projet, données, RAG, orchestration, MCP, évaluation, documentation</td><td>SERRAY (seul)</td><td>Pas de relecture croisée : compensée par tests automatiques et validateurs</td></tr>
+<tr><td>Assistant IA</td><td>Claude Sonnet 5.5</td><td>Produit du code et des documents ; sorties vérifiées et tracées</td></tr>
+<tr><td>Encadrante</td><td>Mme M. CHERRABI</td><td>Valide les jalons ; conseille sur le GPU (Colab)</td></tr></table>
+<h3>7.3 Limites honnêtes à ce stade</h3>
+<ul>
+<li>Les scores du prototype (64/64 sur le jeu de développement ; 63/70 sur le jeu de référence) proviennent d'un backend de test non sémantique et de jeux réglés après lecture des échecs : ce ne sont pas des mesures finales.</li>
+<li>BGE-M3, Qwen2.5-VL, Qdrant serveur, PostgreSQL, MinIO réels : non validés ; MinIO n'a été testé qu'avec un faux client.</li>
+<li>Les photos sont des dessins générés par code ; une latence inférieure à 30 s avec photo n'est pas atteignable sur le CPU local.</li>
+<li>La vérification humaine du corpus reste à faire et à signer.</li></ul>
+</body></html>

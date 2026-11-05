@@ -1,0 +1,13 @@
+flowchart LR
+  subgraph Utilisateurs
+    I[Installateur] --- gi[grp_installateurs]
+    S[Technicien SAV] --- gs[grp_sav]
+    E[Ingénieur] --- ge[grp_engineering]
+  end
+  gi --> D1[Manuels, guides, fiches sécurité]
+  gs --> D1
+  gs --> D2[Codes d'alarme, procédures, bulletins, historiques]
+  ge --> D1
+  ge --> D2
+  ge --> D3[Note confidentielle engineering]
+  D3 -. "jamais renvoyée aux autres groupes" .-> gs

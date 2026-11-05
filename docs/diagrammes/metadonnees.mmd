@@ -1,0 +1,43 @@
+erDiagram
+  DOCUMENT ||--o{ CHUNK : contient
+  DOCUMENT }o--o{ GROUPE : "visible par"
+  DOCUMENT ||--o{ FIGURE : illustre
+  EQUIPEMENT ||--o{ TICKET : possede
+  DOCUMENT {
+    string document_id PK
+    string titre
+    string famille
+    string modele
+    string version
+    string validity_status
+    date document_date
+    string sha256
+    string object_key
+  }
+  CHUNK {
+    string chunk_id PK
+    string document_id FK
+    int page
+    string element_type
+    string section
+    string text
+    string access_groups
+  }
+  EQUIPEMENT {
+    string equipement_id PK
+    string modele
+    string site
+  }
+  TICKET {
+    string ticket_id PK
+    string equipement_id FK
+    string idempotency_key
+    string statut
+  }
+  GROUPE {
+    string groupe_id PK
+  }
+  FIGURE {
+    string figure_id PK
+    int page
+  }

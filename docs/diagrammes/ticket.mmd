@@ -1,0 +1,17 @@
+sequenceDiagram
+  participant T as Technicien
+  participant O as Orchestrateur
+  participant H as Responsable (validation)
+  participant M as Outil MCP
+  T->>O: « Ouvre un ticket pour HN-S5-01 »
+  O->>O: Brouillon (équipement, symptôme, citations)
+  O->>H: Demande d'approbation (interrupt, état sauvegardé)
+  H-->>O: Approuve / refuse
+  O->>M: create_ticket(brouillon, approval_token, idempotency_key)
+  M->>M: Vérifie jeton HMAC (utilisateur, contenu, expiration, usage unique)
+  alt clé déjà vue
+    M-->>O: Renvoie le ticket existant (pas de doublon)
+  else nouvelle clé
+    M-->>O: Ticket créé TCK-xxxx
+  end
+  O-->>T: Confirmation + référence

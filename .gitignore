@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+models/
+*.safetensors
+data/private/
+
+# Corpus fictif reproductible (python scripts/generate_corpus.py) : non versionné
+data/samples/corpus/
+data/samples/corpus_enrichi/
+.pytest_cache/
