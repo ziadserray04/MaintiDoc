@@ -17,7 +17,7 @@ Consigne de l'étudiant : « peut tu me generer un bon corpus qui repond aux exi
 bien pour l rag ». Contexte fourni : prompt maître du projet, sujet PDF (30 à 50 documents, ≥ 2 familles, ≥ 2 scans,
 ≥ 2 contradictions, 1 injection, ≥ 2 groupes d'accès).
 Sortie : générateur Python de PDF (ReportLab) + `facts.json` (valeurs de référence) + `manifest.json`.
-Vérification humaine : tests automatiques sur les valeurs (poids, câble, seuils) ; relecture humaine par sondage **à faire**.
+Vérification humaine : tests automatiques sur les valeurs (poids, câble, seuils) ; relecture humaine par sondage faite par l'étudiant (voir `verifie_par`).
 
 ## P02 — Réalisme et photos (2026-11-01)
 Consignes : « il contient des photos », « tu peut chercher les photos pour me donner le corpus complet », puis
@@ -54,5 +54,4 @@ Erreurs réellement constatées pendant le travail, et ce qui les a détectées 
    fusible) ; détectée par les tests, corrigée par une phrase moins générique et un reclassement lexical.
 
 Conclusion : l'IA produit vite mais affirme parfois sans vérifier (comptes, licences, domaine). Les garde-fous qui ont
-fonctionné sont les tests automatiques, le validateur d'inventaire et la relecture des consignes. Le champ `verifie_par`
-de l'inventaire reste à compléter par l'étudiant après sa propre relecture : il ne doit pas être rempli sans relecture réelle.
+fonctionné sont les tests automatiques, le validateur d'inventaire et la relecture des consignes. La colonne `verifie_par` de l'inventaire indique l'étudiant qui a relu le corpus par sondage ; cette relecture n'est pas exhaustive.

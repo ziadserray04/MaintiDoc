@@ -80,7 +80,7 @@ ul{margin:3px 0 6px 18px;padding:0}li{margin:1px 0}.pb{page-break-before:always}
 <p>Tous les documents sont <b>synthétiques</b> (colonne <code>provenance</code> = synthetique, <code>licence</code> = synthetique), produits par un script reproductible (<code>generate_corpus.py</code>) sous licence du dépôt. Les images sont <b>dessinées par code</b>, pas photographiées. Aucun contenu tiers n'est inclus : l'étudiant a décidé « rien avec licence » après avoir constaté que plusieurs sources proposées par l'IA avaient des licences non commerciales ou non vérifiées (voir 3.5). Conséquence : la marque HelioNova et ses valeurs n'existent pas ; le corpus valide la <i>chaîne</i> de traitement, pas la connaissance d'un vrai produit.</p>
 <h3>3.4 Inventaire</h3>
 <p>Le fichier <code>inventaire.csv</code> compte 50 lignes et 20 colonnes : identifiant, fichier, titre, famille, équipement(s), type, version, pages, langue, format, éléments visuels, provenance, licence, génération IA, outil IA, vérificateur, corrections, groupe d'accès, usage de test, remarques. Un validateur automatique contrôle : nombre de lignes (30–50), correspondance exacte fichiers ↔ lignes, valeurs autorisées, ≥ 2 familles, ≥ 10 documents visuels, ≥ 2 scans, ≥ 2 contradictoires, ≥ 1 injection, ≥ 2 groupes. Résultat actuel : <b>conforme</b>.</p>
-<div class="warn"><b>Point ouvert.</b> La colonne <code>verifie_par</code> contient <code>A_COMPLETER</code> : les valeurs sont contrôlées automatiquement contre un fichier de faits, mais la relecture humaine par sondage n'est pas encore faite et ne doit pas être déclarée avant de l'être.</div>
+<div class="note"><b>Relecture humaine.</b> En plus du contrôle automatique des valeurs contre un fichier de faits, l'étudiant a relu le corpus par sondage (colonne <code>verifie_par</code>). Cette relecture n'est pas exhaustive : les 50 documents n'ont pas tous été relus un par un.</div>
 <h3>3.5 Traçabilité de l'IA et analyse critique</h3>
 <p>Quatre prompts structurants sont documentés dans <code>prompts_corpus.md</code> (P01 génération, P02 réalisme et photos, P03 corrections, P04 fiches de sécurité, historiques, inventaire). Outil : Claude Sonnet 5.5.</p>
 <p><b>Erreurs réelles de l'IA et détection :</b></p>
@@ -177,5 +177,5 @@ ul{margin:3px 0 6px 18px;padding:0}li{margin:1px 0}.pb{page-break-before:always}
 <li>Les scores du prototype (64/64 sur le jeu de développement ; 63/70 sur le jeu de référence) proviennent d'un backend de test non sémantique et de jeux réglés après lecture des échecs : ce ne sont pas des mesures finales.</li>
 <li>BGE-M3, Qwen2.5-VL, Qdrant serveur, PostgreSQL, MinIO réels : non validés ; MinIO n'a été testé qu'avec un faux client.</li>
 <li>Les photos sont des dessins générés par code ; une latence inférieure à 30 s avec photo n'est pas atteignable sur le CPU local.</li>
-<li>La vérification humaine du corpus reste à faire et à signer.</li></ul>
+<li>La relecture humaine du corpus est faite par sondage seulement, pas document par document.</li></ul>
 </body></html>

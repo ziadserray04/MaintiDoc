@@ -27,4 +27,4 @@ Le corpus est généré par `scripts/generate_corpus.py` du dépôt (`python -m 
 ## Limites
 - Le prototype de recherche utilise des embeddings de test (sans GPU) ; BGE-M3, Qwen2.5-VL, Docker et les services réels
   seront validés sur Google Colab (PC : 16 Go RAM, pas de GPU NVIDIA).
-- Les images sont dessinées par code. La relecture humaine du corpus (`verifie_par`) reste à compléter.
+- Les images sont dessinées par code. La relecture humaine du corpus a été faite par sondage (colonne `verifie_par`), en plus des contrôles automatiques ; elle n'est pas exhaustive.
