@@ -107,4 +107,4 @@ def main(report_path="docs/eval_text_reference_report.md", chunks_jsonl=None):
 
 
 if __name__ == "__main__":
-    main()
+    main(*sys.argv[1:2])  # optionnel : chemin du rapport (ex. docs/eval_text_reference_report_bge-m3.md)

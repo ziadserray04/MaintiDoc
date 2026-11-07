@@ -46,7 +46,29 @@ class HashingEmbedder:
         return out
 
 
+class BgeM3Embedder:
+    """BGE-M3 (BAAI/bge-m3, dense, 1024 dim) via sentence-transformers. À exécuter sur GPU (Colab) ;
+    fonctionne aussi sur CPU mais lentement. Les vecteurs sont normalisés (cosinus)."""
+    name = "bge-m3"
+    dim = 1024
+
+    def __init__(self, model_name: str = "BAAI/bge-m3", device: str | None = None, batch_size: int = 32):
+        from sentence_transformers import SentenceTransformer  # import tardif : dépendance optionnelle (extra `gpu`)
+        self.batch_size = batch_size
+        self.model = SentenceTransformer(model_name, device=device)
+        self.model.max_seq_length = 512
+        if str(self.model.device).startswith("cuda"):
+            self.model.half()
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        vecs = self.model.encode(texts, batch_size=self.batch_size, normalize_embeddings=True,
+                                 show_progress_bar=False, convert_to_numpy=True)
+        return [v.astype("float32").tolist() for v in vecs]
+
+
 def get_embedder(name: str = "hashing") -> Embedder:
     if name == "hashing":
         return HashingEmbedder()
+    if name == "bge-m3":
+        return BgeM3Embedder()
     raise NotImplementedError(f"Backend d'embeddings '{name}' non disponible dans cet environnement (voir technical_decisions.md D2)")

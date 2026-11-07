@@ -8,6 +8,7 @@ from pathlib import Path
 
 from qdrant_client import QdrantClient
 
+from app.core.config import get_settings
 from app.schemas.retrieval import UserContext
 from app.services.answer_generation.answer import answer_question
 from app.services.ingestion.pipeline import ingest_corpus
@@ -42,7 +43,7 @@ def main():
     facts = json.loads((CORPUS / "facts.json").read_text())
     d = Path(tempfile.mkdtemp())
     ingest_corpus(CORPUS, d / "c.jsonl", d / "s.json")
-    cl, em = QdrantClient(":memory:"), get_embedder("hashing")
+    cl, em = QdrantClient(":memory:"), get_embedder(get_settings().embedding_backend)
     build_index(d / "c.jsonl", cl, em)
     known = known_models(cl, em)
     user = UserContext(user_id="eval", groups=["grp_sav"])
