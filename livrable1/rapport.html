@@ -135,10 +135,11 @@ ul{margin:3px 0 6px 18px;padding:0}li{margin:1px 0}.pb{page-break-before:always}
 <p>Champs clés par fragment : <code>document_id</code>, <code>page</code>, <code>element_type</code> (text, table, figure), <code>equipment_model</code>, <code>version</code>, <code>validity_status</code> (valid / obsolète), <code>document_date</code>, <code>access_groups</code>, <code>sha256</code>.</p>
 <h3>5.5 Modèle d'accès</h3>
 <figure><img src="acces.png" style="max-height:80mm" alt="Accès"><figcaption>Figure 6 — Groupes et documents visibles</figcaption></figure>
-<table><tr><th>Groupe</th><th>Voit</th><th>Ne voit pas</th></tr>
-<tr><td>grp_installateurs</td><td>Manuels, guides généraux, fiches de sécurité</td><td>Codes d'alarme détaillés, procédures internes, historiques, note confidentielle</td></tr>
-<tr><td>grp_sav</td><td>Tout ce qui précède + codes, procédures, bulletins, historiques</td><td>Note confidentielle d'engineering</td></tr>
-<tr><td>grp_engineering</td><td>Tout, y compris la note confidentielle</td><td>—</td></tr></table>
+<table><tr><th>Groupe</th><th>Documents visibles dans le corpus</th><th>Non visibles</th></tr>
+<tr><td>grp_installateurs</td><td>Les 49 documents courants (manuels, guides de codes, procédures, fiches de sécurité, historiques, bulletins, photos)</td><td>Note confidentielle d'engineering</td></tr>
+<tr><td>grp_sav</td><td>Les mêmes 49 documents</td><td>Note confidentielle d'engineering</td></tr>
+<tr><td>grp_engineering</td><td>La note confidentielle seule (1 document)</td><td>Les 49 documents courants, sauf si l'utilisateur cumule aussi grp_sav</td></tr></table>
+<p>Un utilisateur peut appartenir à plusieurs groupes : le <b>responsable</b> cumule grp_sav et grp_engineering et voit les 50 documents. Dans ce corpus, la distinction installateur / SAV n'est pas encore exploitée (mêmes documents) : elle sera différenciée à la semaine 4 avec les droits sur les outils (par exemple, seul le SAV peut proposer un ticket), et le jeu d'évaluation teste surtout la frontière avec la note confidentielle.</p>
 <p>Test réalisé : sur 70 scénarios dont 10 sur les droits, aucune réponse pour le groupe SAV ne contient le marqueur de la note confidentielle. Un document obsolète n'est jamais renvoyé par défaut ; il n'est consultable que sur demande explicite.</p>
 
 <h2 class="pb">6. Risques</h2>

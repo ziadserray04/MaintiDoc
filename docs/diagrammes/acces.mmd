@@ -2,12 +2,11 @@ flowchart LR
   subgraph Utilisateurs
     I[Installateur] --- gi[grp_installateurs]
     S[Technicien SAV] --- gs[grp_sav]
-    E[Ingénieur] --- ge[grp_engineering]
+    E[Responsable] --- gs2[grp_sav] 
+    E --- ge[grp_engineering]
   end
-  gi --> D1[Manuels, guides, fiches sécurité]
+  gi --> D1[49 documents courants : manuels, codes, procédures, sécurité, historiques, photos]
   gs --> D1
-  gs --> D2[Codes d'alarme, procédures, bulletins, historiques]
-  ge --> D1
-  ge --> D2
-  ge --> D3[Note confidentielle engineering]
-  D3 -. "jamais renvoyée aux autres groupes" .-> gs
+  gs2 --> D1
+  ge --> D3[Note confidentielle d'engineering]
+  D3 -. "jamais renvoyée à grp_installateurs ni à grp_sav seuls" .-> gs
