@@ -27,8 +27,11 @@ def norm(s: str) -> str:
     return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", s)).strip().lower()
 
 
-def main(report_path="docs/eval_text_reference_report.md", chunks_jsonl=None):
-    scenarios = [json.loads(l) for l in REF.read_text().splitlines() if l.strip()]
+def main(report_path="docs/eval_text_reference_report.md", ref_path=None, chunks_jsonl=None):
+    ref = Path(ref_path) if ref_path else REF
+    all_scen = [json.loads(l) for l in ref.read_text(encoding="utf-8").splitlines() if l.strip()]
+    scenarios = [s for s in all_scen if s.get("runner", "text") == "text"]  # agent / vlm : composants non encore construits
+    skipped = [s for s in all_scen if s.get("runner", "text") != "text"]
     tmp = Path(tempfile.mkdtemp())
     if chunks_jsonl is None:
         ingest_corpus(CORPUS, tmp / "c.jsonl", tmp / "s.json")
@@ -46,9 +49,12 @@ def main(report_path="docs/eval_text_reference_report.md", chunks_jsonl=None):
     for s in scenarios:
         user = UserContext(user_id="eval", groups=s["user_groups"])
         r = answer_question(s["question"], user, cl, emb, known)
-        good = r.status == s["expected_status"]
+        exp = s["expected_status"] if isinstance(s["expected_status"], list) else [s["expected_status"]]
+        good = r.status in exp
+        if good and s.get("forbid_proposed_action") and r.proposed_action:
+            good = False
         text = norm(r.answer)
-        if good and s["gold_contains"] and s["expected_status"] in ("answered", "conflicting_sources"):
+        if good and s["gold_contains"] and r.status in ("answered", "conflicting_sources") and exp[0] in ("answered", "conflicting_sources"):
             good = norm(s["gold_contains"]) in text
         if good and s["must_not_contain"]:
             good = norm(s["must_not_contain"]) not in text
@@ -56,7 +62,7 @@ def main(report_path="docs/eval_text_reference_report.md", chunks_jsonl=None):
         beh[s["category"]][1] += 1
         if not good:
             fails.append((s["id"], s["category"], s["question"], r.status, r.answer[:90]))
-        if s["gold_doc"] and s["expected_status"] == "answered" and s["user_groups"]:
+        if s["gold_doc"] and exp == ["answered"] and s["user_groups"]:
             gold = {c["chunk_id"] for c in chunks if c["document_id"] == s["gold_doc"] and c["element_type"] == s["gold_type"]
                     and norm(s["gold_contains"]) in norm(c["text"])}
             if not gold:
@@ -73,14 +79,24 @@ def main(report_path="docs/eval_text_reference_report.md", chunks_jsonl=None):
             idcg = sum(1 / math.log2(i + 2) for i in range(min(len(gold), 5)))
             ndcg.append(dcg / idcg if idcg else 0.0)
             mrr.append(next((1 / (i + 1) for i, v in enumerate(rel[:10]) if v), 0.0))
-            if r.status == "answered":
+            if r.status == "answered" and s["gold_doc"]:
                 cite_n += 1
                 c0 = r.citations[0] if r.citations else None
                 cite_ok += bool(c0 and c0.document_id == s["gold_doc"] and norm(s["gold_contains"]) in text)
 
     avg = lambda v: sum(v) / len(v) if v else 0.0  # noqa: E731
     tot_ok, tot_n = sum(v[0] for v in beh.values()), sum(v[1] for v in beh.values())
-    lines = [f"# Évaluation du RAG texte sur le jeu de référence\n",
+    is150 = ref.name.startswith("eval_150")
+    if is150:
+        intro = [f"# Évaluation sur le jeu figé de 150 scénarios (parties exécutables)\n",
+                 f"Exécutée le {date.today().isoformat()} - embeddings : `{backend}` - {len(scenarios)} scénarios texte exécutés sur {len(all_scen)} "
+                 f"(`{ref}`, graine 4242, empreinte dans `data/evaluation/eval_150.sha256`).\n",
+                 f"**Non exécutés ({len(skipped)})** : {sum(s['runner'] == 'vlm' for s in skipped)} scénarios image (VLM, semaine 5) et "
+                 f"{sum(s['runner'] == 'agent' for s in skipped)} scénarios agent/MCP/validation humaine (semaines 3-4). Ils ne sont pas comptés comme réussis.\n",
+                 "Ce jeu a été figé **avant** toute correction des règles de réponse. Premier passage = résultat à rapporter ; "
+                 "toute correction ultérieure doit être décrite avec son effet avant/après.\n"]
+    else:
+        intro = [f"# Évaluation du RAG texte sur le jeu de référence\n",
              f"Exécutée le {date.today().isoformat()} - embeddings : `{backend}` - {len(scenarios)} scénarios "
              f"(`data/evaluation/text_reference.jsonl`, graine 2026).\n",
              "Ces scénarios sont **synthétiques**, générés depuis les mêmes faits que le corpus avec des formulations "
@@ -89,7 +105,8 @@ def main(report_path="docs/eval_text_reference_report.md", chunks_jsonl=None):
                 if backend == "hashing" else "\n"),
              "La première exécution (avant correctifs) est conservée dans `docs/eval_text_reference_first_run.md` : 53/70. "
              "Les correctifs qui ont suivi ont été décidés après lecture des échecs de ce même jeu : il n'est donc plus "
-             "indépendant et ne doit pas être présenté comme une mesure à l'aveugle.\n",
+             "indépendant et ne doit pas être présenté comme une mesure à l'aveugle.\n"]
+    lines = intro + [
              "## Recherche (questions avec réponse, %d scénarios)\n" % len(rec),
              "| Métrique | Valeur |", "|---|---|",
              f"| Recall@5 | {avg(rec):.3f} |", f"| nDCG@5 | {avg(ndcg):.3f} |", f"| MRR@10 | {avg(mrr):.3f} |",
@@ -107,4 +124,4 @@ def main(report_path="docs/eval_text_reference_report.md", chunks_jsonl=None):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:2])  # optionnel : chemin du rapport (ex. docs/eval_text_reference_report_bge-m3.md)
+    main(*sys.argv[1:3])  # optionnel : chemin du rapport puis chemin du jeu (ex. docs/x.md data/evaluation/eval_150.jsonl)
