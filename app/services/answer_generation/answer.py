@@ -18,8 +18,25 @@ MODEL_RE = re.compile(r"\bhn[\s-]?([a-z]\d{1,3})\b", re.I)
 MIN_SCORE = 0.12
 FR_STOP = {"comment", "faire", "quelle", "quel", "quels", "quelles", "est", "sont", "que", "qui", "quoi", "pour",
            "dans", "avec", "sans", "cette", "cet", "les", "des", "une", "aux", "sur", "par", "est-ce", "signifie",
-           "faut", "partir", "combien", "helionova", "peut", "puis", "elle", "lui", "leur", "mon", "son", "ses", "mes", "tout", "tous", "plus", "il"}
+           "faut", "partir", "combien", "helionova", "peut", "puis", "elle", "lui", "leur", "mon", "son", "ses", "mes", "tout", "tous", "plus", "il",
+           # formulation de la demande, pas le sujet : « je dois… », « de quoi s'agit-il », « affiche », « valeur actuelle »
+           "dois", "doit", "devoir", "prevoir", "prevoyez", "installer", "afficher", "affiche", "affichage", "agit", "cela",
+           "valeur", "actuelle", "actuel", "donne", "donnez", "explique", "expliquez", "indique", "signale", "allume", "allumee", "aujourd"}
+# Vocabulaire du domaine : un mot de la question est « retrouvé » si la source contient le mot OU l'un de ses équivalents.
+SYNONYMS = {
+    "pese": {"poids", "masse"}, "peser": {"poids", "masse"}, "poids": {"masse"}, "masse": {"poids"},
+    "protection": {"fusible", "disjoncteur"}, "protege": {"fusible", "disjoncteur"}, "calibre": {"fusible", "disjoncteur"},
+    "derating": {"limitation", "puissance"}, "reduction": {"limitation"}, "reduit": {"limitation"}, "reduire": {"limitation"},
+    "diminue": {"limitation"}, "diminuer": {"limitation"}, "bride": {"limitation"}, "brider": {"limitation"}, "limite": {"limitation"},
+    "thermique": {"temperature"}, "chaleur": {"temperature"}, "declenche": {"atteint", "depasse"}, "commence": {"atteint"},
+    "alerte": {"alarme"}, "alarme": {"alerte"}, "haute": {"elevee", "haut"}, "stock": {"stockage", "entrepose"},
+    "stocke": {"stockage", "entrepose"}, "stockee": {"stockage", "entrepose"}, "entrepose": {"stockage"}, "recharger": {"recharge"},
+    "taille": {"section"}, "diametre": {"section"}, "origine": {"cause"}, "erreur": {"code"}, "defaut": {"code"},
+    "rendement": {"efficacite"}, "efficacite": {"rendement"}, "serrer": {"serrage", "couple"}, "serrage": {"couple"},
+    "accepte": {"compatible"}, "compatibilite": {"compatible"}, "brancher": {"compatible", "raccord"},
+}
 CONFLICT_MIN_LEXICAL = 0.6  # part des mots-clés de la question que CHAQUE passage comparé doit contenir
+ATOMIC_MAX_CHARS = 300  # longueur max d'un passage « atomique » (ligne de tableau, phrase)
 MIN_LEXICAL = 0.5  # part des mots-clés de la question qui doivent figurer dans la source
 NO_SOURCE = "Je n'ai pas de source accessible et suffisante pour répondre à cette question."
 
@@ -35,7 +52,11 @@ def lexical_support(question: str, text: str) -> float:
         return 0.0
     t = normalize(text)
     # radical de 4 lettres pour les mots longs : « serrer » ~ « serrage », « limite » ~ « limitation »
-    return sum(1 for w in q if (w[:4] if len(w) > 5 else w) in t) / len(q)
+    stem = lambda w: w[:4] if len(w) > 5 else w  # noqa: E731
+    # les équivalents ne comptent que dans un passage court (ligne de tableau, phrase) : dans un long paragraphe qui mentionne
+    # tout, ils feraient passer n'importe quel texte générique
+    syn = len(text) <= ATOMIC_MAX_CHARS
+    return sum(1 for w in q if stem(w) in t or (syn and any(stem(a) in t for a in SYNONYMS.get(w, ())))) / len(q)
 
 
 def _content_words(text: str) -> set[str]:
@@ -113,7 +134,10 @@ def answer_question(question: str, user: UserContext, client: QdrantClient, embe
                               uncertainties=[f"Aucune documentation disponible pour le modèle {model}."])
     pool = search(client, embedder, question, user, top_k=10, equipment_model=model)
     hits = pool  # reclassement lexical sur tout le pool (10) : le passage exact peut être hors des 5 premiers vecteurs
-    if not hits or hits[0].score < MIN_SCORE or max(lexical_support(question, h.text) for h in hits) < MIN_LEXICAL:
+    q_codes = {c.upper() for c in CODE_RE.findall(question)}
+    code_found = any(re.search(rf"\b{c}\b", h.text, re.I) for c in q_codes for h in hits)
+    if not hits or hits[0].score < MIN_SCORE or (
+            not code_found and max(lexical_support(question, h.text) for h in hits) < MIN_LEXICAL):
         return AnswerResponse(status="abstained", answer=NO_SOURCE)
     # le passage retenu est celui qui contient le plus de mots-clés de la question (évite les titres/fragments génériques)
     hits = sorted(hits, key=lambda h: -(lexical_support(question, h.text) + 0.5 * h.score))
@@ -132,10 +156,14 @@ def answer_question(question: str, user: UserContext, client: QdrantClient, embe
         with_code = [h for h in hits if h.element_type == "table" and any(re.search(rf"\b{c}\b", h.text, re.I) for c in codes)]
         code_table = [h for h in with_code if (h.section or "").startswith("Tableau (Code")]
         top = (code_table or with_code or [top])[0]
-    if not codes and lexical_support(question, top.text) < MIN_LEXICAL:
+    led = _led_row(question, model, user, client, embedder) if not codes else None
+    if led is not None:
+        top = led
+    elif not codes and lexical_support(question, top.text) < MIN_LEXICAL:
         return AnswerResponse(status="abstained", answer=NO_SOURCE)
     claim = top.text if top.element_type == "table" else best_segment(top.text, question)  # une ligne de tableau est l'unité de réponse
-    other = find_conflict(question, top, pool)
+    conflict_pool = search(client, embedder, question, user, top_k=30, equipment_model=model) if model else pool
+    other = find_conflict(question, top, conflict_pool)
     if other is not None:
         a = claim if top.element_type == "table" else _quantity_segment(top.text, question)
         b = other.text if other.element_type == "table" else _quantity_segment(other.text, question)
@@ -149,6 +177,19 @@ def answer_question(question: str, user: UserContext, client: QdrantClient, embe
     if not check.supported:
         return AnswerResponse(status="abstained", answer=NO_SOURCE, uncertainties=[check.reason])
     return AnswerResponse(status="answered", answer=claim, citations=[_cite(top)])
+
+
+LED_RE = re.compile(r"\b(vert|orange|rouge)\s+(fixe|clignotant)\b")
+
+
+def _led_row(question, model, user, client, embedder) -> SearchHit | None:
+    """« Que signifie le voyant vert clignotant ? » : on renvoie la ligne du tableau des voyants du modèle, pas une fiche de code."""
+    m = LED_RE.search(normalize(question))
+    if not (m and model and "voyant" in normalize(question)):
+        return None
+    hits = search(client, embedder, f"Voyant {m.group(0)}", user, top_k=20, equipment_model=model)
+    return next((h for h in hits if h.element_type == "table" and (h.section or "").startswith("Tableau (Voyant")
+                 and h.equipment_model == model and normalize(h.text).startswith(m.group(0))), None)
 
 
 def _answer_compat(question, mentioned, user, client, embedder, known) -> AnswerResponse:

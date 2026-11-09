@@ -147,3 +147,17 @@ def test_compatibility_respects_unknown_model_and_rights(rag):
 
 def test_two_inverters_in_one_question_still_need_clarification(rag):
     assert ask(rag, "Quel est le couple de serrage du HN-S5 et du HN-S8 ?").status == "needs_clarification"
+
+
+def test_led_question_returns_the_led_table_row_not_a_code_sheet(rag, facts):
+    for m in ("HN-S5", "HN-B20"):
+        led = next(x for x in facts[m]["leds"] if x["led"] == "Rouge fixe")
+        r = ask(rag, f"Sur le {m}, le voyant rouge fixe est allumé : qu'est-ce que cela indique ?")
+        assert r.status == "answered" and led["meaning"] in r.answer and r.citations[0].element_type == "table", m
+
+
+def test_rephrased_questions_still_find_the_value(rag, facts):
+    # « calibre de protection » (≠ « fusible ») n'est pas testé ici : avec le backend de hachage, « Indice de protection »
+    # (IP65) est un faux ami lexical ; ce cas relève du classement sémantique, mesuré avec BGE-M3 (eval_150, E029/E030).
+    r = ask(rag, "Le HN-S10 affiche E504 : de quoi s'agit-il ?")
+    assert r.status == "answered" and "firmware" in r.answer.lower()

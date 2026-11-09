@@ -44,3 +44,10 @@ def test_bge_m3_backend_plumbing_with_fake_model(monkeypatch):
     e = get_embedder("bge-m3")
     v = e.embed(["a", "b"])
     assert e.name == "bge-m3" and e.dim == 1024 and len(v) == 2 and len(v[0]) == 1024
+
+
+def test_lexical_support_uses_domain_synonyms_and_ignores_request_wording():
+    from app.services.answer_generation.answer import lexical_support
+    assert lexical_support("Quel calibre de protection AC prévoir ?", "Calibre du fusible AC : 16 A") == 1.0
+    assert lexical_support("Je dois manutentionner : combien pèse-t-il ?", "Masse (poids) : 16 kg") >= 0.5
+    assert lexical_support("Quel est le prix de livraison ?", "Masse (poids) : 16 kg") == 0.0
