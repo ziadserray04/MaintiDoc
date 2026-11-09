@@ -4,7 +4,7 @@ Sources : `Projet_IA_Générative_Multi_Modale_V2.pdf` (réf. principale, « PDF
 Priorités : **P0** indispensable à la démo, **P1** important, **P2** si temps/matériel.
 Statuts : Terminé et vérifié · Implémenté, tests incomplets · En cours · Non implémenté · Bloqué.
 
-État au démarrage : **aucune exigence n'est implémentée**. Cette matrice sera mise à jour à chaque phase avec des preuves réelles.
+État au démarrage : aucune exigence n'était implémentée. Les statuts des tableaux ci-dessous ont été mis à jour le 2026-11-09 d'après le journal en bas de page ; les lignes encore « Non implémenté » ne sont pas commencées (agent, MCP, API, interface, VLM, sécurité côté outils, MLflow, Docker réel).
 
 ## Fonctionnelles
 
@@ -12,15 +12,15 @@ Statuts : Terminé et vérifié · Implémenté, tests incomplets · En cours ·
 |---|---|---|---|---|---|---|
 | F-01 | Questions techniques en français | PDF §1, PM §2 | P0 | api/routes/query | tests/api | Non implémenté |
 | F-02 | Question + photographie | PDF §1,14 | P0 | api/routes/query_multimodal, services/multimodal | tests/e2e #5 | Non implémenté |
-| F-03 | Réponse sourcée (doc, version, page, élément) | PDF §4.2 | P0 | services/answer_generation | tests/unit citations | Non implémenté |
+| F-03 | Réponse sourcée (doc, version, page, élément) | PDF §4.2 | P0 | services/answer_generation | tests/unit citations | Implémenté (document, version, page, élément) |
 | F-04 | Consultation historique via MCP | PDF §6 | P0 | mcp/tools | tests/e2e #11 | Non implémenté |
 | F-05 | Consultation tickets ouverts via MCP | PDF §6 | P0 | mcp/tools | tests/e2e #12 | Non implémenté |
 | F-06 | Brouillon de ticket | PDF §1,6 | P0 | services/ticketing | tests/e2e #13 | Non implémenté |
 | F-07 | Création de ticket après approbation humaine explicite | PDF §6 | P0 | agents/graph, mcp | tests/e2e #15 | Non implémenté |
-| F-08 | Clarification / abstention (photo illisible, pas de source, contradiction, risque hors rôle) | PDF §8 | P0 | agents/nodes | tests/e2e #6,7,8 | Non implémenté |
+| F-08 | Clarification / abstention (photo illisible, pas de source, contradiction, risque hors rôle) | PDF §8 | P0 | agents/nodes | tests/e2e #6,7,8 | Partiel : abstention et clarification implémentées ; défauts connus (voir docs/eval_150_corrections.md) |
 | F-09 | Distinction faits sourcés / observations visuelles / hypothèses / inconnus | PDF §8, PM §2 | P0 | schemas, frontend | tests/unit + revue UI | Non implémenté |
-| F-10 | Pas de % de confiance inventé par le modèle | PDF §8 | P0 | schemas, prompts | test schéma (champ absent) | Non implémenté |
-| F-11 | Sortie structurée Pydantic (status, answer, citations, uncertainties, clarification_question, proposed_action) | PDF §7 | P0 | schemas/answer | tests/unit | Non implémenté |
+| F-10 | Pas de % de confiance inventé par le modèle | PDF §8 | P0 | schemas, prompts | test schéma (champ absent) | Terminé et vérifié (champ `confidence` refusé par le schéma) |
+| F-11 | Sortie structurée Pydantic (status, answer, citations, uncertainties, clarification_question, proposed_action) | PDF §7 | P0 | schemas/answer | tests/unit | Implémenté (schéma Pydantic, tests) |
 | F-12 | Interface Streamlit (chat, photo/PDF, citations, brouillon, confirmation) | PDF §3, FR P8 | P1 | frontend | tests/e2e + revue manuelle | Non implémenté |
 | F-13 | Endpoints API listés PM §11 | PM §11 | P0 | api | tests/api | Non implémenté |
 
@@ -28,21 +28,21 @@ Statuts : Terminé et vérifié · Implémenté, tests incomplets · En cours ·
 
 | ID | Exigence | Source | Prio | Module cible | Test / preuve prévus | Statut |
 |---|---|---|---|---|---|---|
-| D-01 | Corpus 30–50 documents autorisés/synthétiques, 2 familles d'équipements | PDF §2 | P0 | data/samples, scripts | inventaire corpus | Non implémenté |
-| D-02 | Métadonnées par doc (id, version, statut, famille, groupes d'accès, provenance) | PM §6 | P0 | database | tests/unit | Non implémenté |
+| D-01 | Corpus 30–50 documents autorisés/synthétiques, 2 familles d'équipements | PDF §2 | P0 | data/samples, scripts | inventaire corpus | Terminé : 50 documents (43 PDF + 7 photos), inventaire validé, relecture humaine par sondage |
+| D-02 | Métadonnées par doc (id, version, statut, famille, groupes d'accès, provenance) | PM §6 | P0 | database | tests/unit | Implémenté (SQLite ; PostgreSQL non validé), tests unitaires |
 | D-03 | Ingestion PDF numériques (PyMuPDF), détection pages scannées | PDF §4.1 | P0 | services/ingestion | e2e #1 | Implémenté, tests incomplets (tests/unit/test_ingestion.py, 10 tests OK sur corpus synthétique) |
-| D-04 | OCR local pour scans | PDF §3,4.1 | P1 | services/ingestion | e2e #2 | Implémenté, tests incomplets (OCR en anglais seulement : accents dégradés, ex. « Arréter ») |
+| D-04 | OCR local pour scans | PDF §3,4.1 | P1 | services/ingestion | e2e #2 | Implémenté : OCR français (`fra`), 2 scans du corpus |
 | D-05 | Extraction tableaux et figures avec page + element_id | PDF §4.1 | P0 | services/ingestion | e2e #3 | Implémenté, tests incomplets (tableaux + légendes de figures ; indexation d'image à faire) |
 | D-06 | Ingestion idempotente (hash), reprise sur erreur, versions d'index | PM §7 | P1 | services/ingestion | tests/integration | Implémenté, tests incomplets (hash, rejeu idempotent, erreur isolée ; PostgreSQL/MinIO non faits) |
-| D-07 | Stockage : PostgreSQL (métadonnées), MinIO (fichiers) | PDF §3 | P1 | database, storage | tests/integration | Non implémenté |
-| R-01 | Embeddings multilingues (BGE-M3 ou équivalent) + Qdrant | PDF §3 | P0 | services/retrieval | recall@5 | Non implémenté |
+| D-07 | Stockage : PostgreSQL (métadonnées), MinIO (fichiers) | PDF §3 | P1 | database, storage | tests/integration | Implémenté, non validé sur serveurs réels (MinIO : faux client ; PostgreSQL : non testé) |
+| R-01 | Embeddings multilingues (BGE-M3 ou équivalent) + Qdrant | PDF §3 | P0 | services/retrieval | recall@5 | Validé sur Colab : BGE-M3 + Qdrant mémoire, Recall@5 0,91-0,97 selon le jeu ; Qdrant serveur non validé |
 | R-02 | Recherche visuelle (CLIP multilingue) sur figures | PDF §4.2 | P1 | services/retrieval | tests multimodaux | Non implémenté |
 | R-03 | Fusion RRF texte + image | PDF §4.2 | P1 | services/retrieval | tests/unit RRF | Non implémenté |
 | R-04 | Reranking des candidats | PDF §4.2 | P1 | services/reranking | comparaison A/B | Non implémenté |
-| R-05 | Filtrage permissions AVANT récupération et à l'affichage | PDF §4.2, §9 | P0 | retrieval, api | tests/security fuite | Non implémenté |
+| R-05 | Filtrage permissions AVANT récupération et à l'affichage | PDF §4.2, §9 | P0 | retrieval, api | tests/security fuite | Implémenté et testé (recherche) ; 0 fuite sur les jeux texte ; contrôle côté API à faire |
 | R-06 | VLM Qwen2.5-VL-7B-Instruct (ou remplacement justifié) | PDF §3 | P0 | services/multimodal | test GPU séparé | **Bloqué ici (pas de GPU/HF)** |
-| R-07 | Citations = pages/figures réellement récupérées ET soutenant l'affirmation | PDF §4.2 | P0 | services/answer_generation | tests citations non-soutenantes | Non implémenté |
-| R-08 | Gestion contradictions et versions obsolètes | PM §14 | P0 | agents/nodes | e2e #8,9 | Non implémenté |
+| R-07 | Citations = pages/figures réellement récupérées ET soutenant l'affirmation | PDF §4.2 | P0 | services/answer_generation | tests citations non-soutenantes | Implémenté : citations correctes 45/45 (jeu de 150, après correctifs) ; juge sémantique non branché |
+| R-08 | Gestion contradictions et versions obsolètes | PM §14 | P0 | agents/nodes | e2e #8,9 | Partiel : versions obsolètes OK ; contradiction HN-S8 détectée sur 3 formulations sur 6 (jeu de 150) |
 
 ## Agent, MCP, approbation
 
@@ -74,8 +74,8 @@ Statuts : Terminé et vérifié · Implémenté, tests incomplets · En cours ·
 
 | ID | Exigence | Source | Prio | Module cible | Test / preuve prévus | Statut |
 |---|---|---|---|---|---|---|
-| E-01 | Jeu de ~150 scénarios (40/30/20/20/20/20) | PDF §10 | P0 | data/evaluation | décompte réel documenté | Non implémenté |
-| E-02 | Recall@5, nDCG@5, MRR@10 | PDF §10 | P0 | scripts/evaluate_rag.py | rapport | Non implémenté |
+| E-01 | Jeu de ~150 scénarios (40/30/20/20/20/20) | PDF §10 | P0 | data/evaluation | décompte réel documenté | Partiel : jeu figé de 150 scénarios (data/evaluation/eval_150.jsonl) ; 80 exécutables, 70 attendent l'agent, le MCP et le VLM |
+| E-02 | Recall@5, nDCG@5, MRR@10 | PDF §10 | P0 | scripts/evaluate_rag.py | rapport | Implémenté et mesuré avec BGE-M3 sur Colab (voir journal) |
 | E-03 | Métriques réponses, citations, multimodal vs texte seul, abstentions, outils, sécurité | PDF §10 | P1 | scripts/evaluate_rag.py | rapport | Non implémenté |
 | E-04 | Latence médiane/p95, mémoire, GPU ; objectifs : ≥90 % citations soutenantes, 0 ticket sans accord, 0 fuite, p95 < 30 s | PDF §10 | P1 | rapport | **objectifs, pas résultats** | Non implémenté |
 | E-05 | Reranker : 800–1500 exemples, split par doc/famille, 3 comparaisons | PDF §5 | P2 | scripts/train_reranker.py | MLflow | Non implémenté (dépend GPU/données) |
@@ -147,3 +147,16 @@ Environnement : CPU, 2 vCPU, sans GPU. Embeddings `hashing` (non sémantique). Q
 - Fait et testé : provenance des chunks, index Qdrant (mémoire locale), filtre équipement + droits, citations vérifiées, refus/clarification, contradictions, jeu de référence (61/70).
 - À valider sur machine GPU : embeddings BGE-M3 (remplace `hashing`), serveur Qdrant réel, modèle de rédaction (remplace la réponse extractive), reranker éventuel ; relancer `python -m scripts.eval_text_reference` avec `EMBEDDING_BACKEND=bge-m3` et comparer à la première exécution (53/70) et à 61/70.
 - Cibles du PDF non prouvées : ≥ 90 % de citations justifiées, p95 < 30 s.
+
+
+## Journal - semaine 2 : BGE-M3 et jeux d'évaluation (07-09/11/2026)
+Mesures réelles sur Google Colab (GPU T4), corpus régénéré, Qdrant en mémoire ; fichiers dans `docs/eval_*`.
+
+| Jeu | Avant correctifs | Après correctifs | Remarque |
+|---|---|---|---|
+| Référence 70 (BGE-M3) | 65/70 ; Recall@5 0,952 | 67/70 | jeu non indépendant (a servi au réglage) |
+| Figé 150, parties texte (80) | 58/80 ; Recall@5 0,910 ; citations 31/36 | **72/80** ; citations 45/45 | non indépendant depuis la lecture des échecs |
+| Contrôle 60 (graine 777, échecs non lus avant mesure) | — | **58/60** ; Recall@5 0,971 ; citations 33/33 | première mesure ; jeu synthétique généré des mêmes faits |
+
+Défauts restants (jeu de 150, après correctifs) : contradiction HN-S8 non signalée sur 3 formulations, une question de prix répondue par une description au lieu d'une abstention, quatre demandes confidentielles sans modèle qui reçoivent « précisez le modèle » (aucune fuite).
+Non mesuré : 30 scénarios image (VLM), 20 MCP, 10 validation humaine, 10 injections côté outils, latence p95, Docker/PostgreSQL/MinIO réels, reranker. Correctifs : `docs/eval_150_corrections.md`.
