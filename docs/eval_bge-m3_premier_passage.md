@@ -1,6 +1,6 @@
 # Évaluation du RAG texte sur le jeu de référence
 
-Exécutée le 2026-11-07 - embeddings : `bge-m3` - 70 scénarios (`data/evaluation/text_reference.jsonl`, graine 2026).
+Exécutée le 2026-11-09 - embeddings : `bge-m3` - 70 scénarios (`data/evaluation/text_reference.jsonl`, graine 2026).
 
 Ces scénarios sont **synthétiques**, générés depuis les mêmes faits que le corpus avec des formulations différentes de celles utilisées pour régler le système. 
 

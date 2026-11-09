@@ -1,6 +1,6 @@
 # Évaluation du RAG texte sur le jeu de référence
 
-Exécutée le 2026-11-07 - embeddings : `hashing` - 70 scénarios (`data/evaluation/text_reference.jsonl`, graine 2026).
+Exécutée le 2026-11-08 - embeddings : `hashing` - 70 scénarios (`data/evaluation/text_reference.jsonl`, graine 2026).
 
 Ces scénarios sont **synthétiques**, générés depuis les mêmes faits que le corpus avec des formulations différentes de celles utilisées pour régler le système. Le backend `hashing` n'est pas sémantique : ces chiffres ne représentent PAS la qualité d'un vrai modèle (BGE-M3).
 

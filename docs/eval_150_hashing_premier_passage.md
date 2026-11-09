@@ -1,6 +1,6 @@
 # Évaluation sur le jeu figé de 150 scénarios (parties exécutables)
 
-Exécutée le 2026-11-08 - embeddings : `hashing` - 80 scénarios texte exécutés sur 150 (`data/evaluation/eval_150.jsonl`, graine 4242, empreinte dans `data/evaluation/eval_150.sha256`).
+Exécutée le 2026-11-09 - embeddings : `hashing` - 80 scénarios texte exécutés sur 150 (`data/evaluation/eval_150.jsonl`, graine 4242, empreinte dans `data/evaluation/eval_150.sha256`).
 
 **Non exécutés (70)** : 30 scénarios image (VLM, semaine 5) et 40 scénarios agent/MCP/validation humaine (semaines 3-4). Ils ne sont pas comptés comme réussis.
 
